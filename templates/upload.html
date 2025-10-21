@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Upload Syllabus PDF</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    .card { transition: transform .2s, box-shadow .2s; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+    .dropzone { border: 2px dashed #cbd5e1; transition: all .3s; }
+    .dropzone.dragover { border-color: #2563eb; background-color: #eff6ff; }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+
+  <div class="bg-white p-10 rounded-2xl shadow-lg w-96 text-center card" x-data="uploadHandler()">
+    <h2 class="text-2xl font-semibold text-gray-700 mb-2">📘 Upload Syllabus PDF</h2>
+    <p class="text-sm text-gray-500 mb-6">Drag & drop or click to select</p>
+    
+    <form action="/upload" method="POST" enctype="multipart/form-data" 
+          @submit="handleSubmit($event)"
+          class="flex flex-col gap-4">
+      
+      <!-- Drop Zone -->
+      <div class="dropzone rounded-lg p-8 cursor-pointer" 
+           :class="{ 'dragover': isDragging }"
+           @click="$refs.fileInput.click()"
+           @dragover.prevent="isDragging = true"
+           @dragleave.prevent="isDragging = false"
+           @drop.prevent="handleDrop($event)">
+        
+        <div x-show="!fileName" class="text-gray-400">
+          <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          <p class="text-sm">Click or drop PDF here</p>
+        </div>
+        
+        <div x-show="fileName" class="text-gray-700">
+          <svg class="w-12 h-12 mx-auto mb-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <p class="text-sm font-medium" x-text="fileName"></p>
+          <p class="text-xs text-gray-400 mt-1" x-text="fileSize"></p>
+        </div>
+      </div>
+
+      <input type="file" 
+             name="file" 
+             x-ref="fileInput"
+             @change="handleFileSelect($event)"
+             required 
+             class="hidden" 
+             accept=".pdf">
+      
+      <button type="submit" 
+              :disabled="isUploading"
+              :class="isUploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'"
+              class="text-white py-2 rounded-lg transition font-medium">
+        <span x-show="!isUploading">Upload & Process</span>
+        <span x-show="isUploading" class="flex items-center justify-center gap-2">
+          <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Processing...
+        </span>
+      </button>
+
+      <!-- Error Message -->
+      <div x-show="error" x-transition class="text-red-500 text-sm bg-red-50 p-3 rounded-lg" x-text="error"></div>
+    </form>
+  </div>
+
+  <script>
+    function uploadHandler() {
+      return {
+        fileName: '',
+        fileSize: '',
+        isDragging: false,
+        isUploading: false,
+        error: '',
+
+        handleFileSelect(e) {
+          const file = e.target.files[0];
+          this.validateAndSetFile(file);
+        },
+
+        handleDrop(e) {
+          this.isDragging = false;
+          const file = e.dataTransfer.files[0];
+          if (file) {
+            this.$refs.fileInput.files = e.dataTransfer.files;
+            this.validateAndSetFile(file);
+          }
+        },
+
+        validateAndSetFile(file) {
+          this.error = '';
+          
+          if (!file) return;
+          
+          if (file.type !== 'application/pdf') {
+            this.error = 'Please upload a PDF file';
+            this.fileName = '';
+            return;
+          }
+          
+          if (file.size > 10 * 1024 * 1024) {
+            this.error = 'File size must be less than 10MB';
+            this.fileName = '';
+            return;
+          }
+          
+          this.fileName = file.name;
+          this.fileSize = this.formatFileSize(file.size);
+        },
+
+        formatFileSize(bytes) {
+          if (bytes < 1024) return bytes + ' B';
+          if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+          return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        },
+
+        handleSubmit(e) {
+          if (!this.fileName) {
+            e.preventDefault();
+            this.error = 'Please select a file first';
+            return;
+          }
+          this.isUploading = true;
+        }
+      }
+    }
+  </script>
+
+</body>
+</html>
