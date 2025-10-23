@@ -1,80 +1,267 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Upload Syllabus PDF</title>
+  <title>VALL Tracker - Home</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  
   <style>
-    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-    .card { transition: transform .2s, box-shadow .2s; }
-    .card:hover { transform: translateY(-3px); box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+    /* Your new background styles (UNCHANGED) */
+    body { 
+      font-family: 'Inter', sans-serif;
+      height: 100vh;
+      margin: 0;
+      --x: calc(var(--posX, 0) * 1px);
+      --y: calc(var(--posY, 0) * 1px);
+      background-color: #0f172a;
+      padding: 2rem; 
+      overflow-y: auto;
+      position: relative;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      filter: blur(10px);
+      --x: calc(var(--posX, 0) * 1px);
+      --y: calc(var(--posY, 0) * 1px);
+      background-image: 
+        linear-gradient(115deg, rgb(211 255 215), rgb(0 0 0)), 
+        radial-gradient( 90% 100% at calc( 50% + var(--x)) calc( 0% + var(--y)), rgb(200 200 200), rgb(022 000 045)), 
+        radial-gradient(100% 100% at calc( 80% - var(--x)) calc( 0% - var(--y)), rgb(250 255 000), rgb(036 000 000)), 
+        radial-gradient(150% 210% at calc(100% + var(--x)) calc( 0% + var(--y)), rgb(020 175 125), rgb(000 010 255)), 
+        radial-gradient(100% 100% at calc(100% - var(--x)) calc(30% - var(--y)), rgb(255 077 000), rgb(000 200 255)), 
+        linear-gradient(60deg, rgb(255 000 000), rgb(120 086 255));
+      background-blend-mode: overlay, overlay, difference, difference, difference, normal;
+    }
     .dropzone { border: 2px dashed #cbd5e1; transition: all .3s; }
     .dropzone.dragover { border-color: #2563eb; background-color: #eff6ff; }
+    
+    /* Base transition for all animated elements */
+    [x-cloak] { display: none; }
+    .smooth-transition {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .max-h-0 { max-height: 0; }
+    .max-h-96 { max-height: 24rem; }
+
+    /* --- NEW: COOLER, MORE EXPRESSIVE PROGRESS BAR --- */
+    @keyframes progress-animation {
+      0% { background-position: 1rem 0; }
+      100% { background-position: 0 0; }
+    }
+    .progress-bar-animated {
+      /* A cool gradient */
+      background-color: #3b82f6; /* bg-blue-500 */
+      background-image: linear-gradient(
+        45deg, 
+        rgba(255, 255, 255, 0.15) 25%, 
+        transparent 25%, 
+        transparent 50%, 
+        rgba(255, 255, 255, 0.15) 50%, 
+        rgba(255, 255, 255, 0.15) 75%, 
+        transparent 75%, 
+        transparent
+      );
+      background-size: 1rem 1rem;
+      /* The animation */
+      animation: progress-animation 1s linear infinite;
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* --- END OF NEW PROGRESS BAR STYLES --- */
+
   </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
 
-  <div class="bg-white p-10 rounded-2xl shadow-lg w-96 text-center card" x-data="uploadHandler()">
-    <h2 class="text-2xl font-semibold text-gray-700 mb-2">📘 Upload Syllabus PDF</h2>
-    <p class="text-sm text-gray-500 mb-6">Drag & drop or click to select</p>
-    
-    <form action="/upload" method="POST" enctype="multipart/form-data" 
-          @submit="handleSubmit($event)"
-          class="flex flex-col gap-4">
-      
-      <!-- Drop Zone -->
-      <div class="dropzone rounded-lg p-8 cursor-pointer" 
-           :class="{ 'dragover': isDragging }"
-           @click="$refs.fileInput.click()"
-           @dragover.prevent="isDragging = true"
-           @dragleave.prevent="isDragging = false"
-           @drop.prevent="handleDrop($event)">
-        
-        <div x-show="!fileName" class="text-gray-400">
-          <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-          </svg>
-          <p class="text-sm">Click or drop PDF here</p>
+<body>
+
+  <div class="max-w-3xl mx-auto relative z-10">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-6 space-y-3">
+        {% for category, message in messages %}
+          <div class="p-4 rounded-lg border font-medium {{ 
+                'bg-green-100 border-green-300 text-green-800' if category == 'success' 
+                else 'bg-red-100 border-red-300 text-red-800' 
+              }}" role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
         </div>
-        
-        <div x-show="fileName" class="text-gray-700">
-          <svg class="w-12 h-12 mx-auto mb-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <p class="text-sm font-medium" x-text="fileName"></p>
-          <p class="text-xs text-gray-400 mt-1" x-text="fileSize"></p>
-        </div>
-      </div>
-
-      <input type="file" 
-             name="file" 
-             x-ref="fileInput"
-             @change="handleFileSelect($event)"
-             required 
-             class="hidden" 
-             accept=".pdf">
+      {% endif %}
+    {% endwith %}
+    <section class="bg-white shadow-lg rounded-2xl p-8 w-full text-center mb-10" x-data="uploadHandler()">
+      <h1 class="text-3xl font-bold mb-2 text-blue-700">VALL Tracker</h1>
+      <h2 class="text-2xl font-semibold text-gray-700 mb-2">📘 Upload New Syllabus</h2>
+      <p class="text-sm text-gray-500 mb-6">Drag & drop or click to select a PDF</p>
       
-      <button type="submit" 
-              :disabled="isUploading"
-              :class="isUploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'"
-              class="text-white py-2 rounded-lg transition font-medium">
-        <span x-show="!isUploading">Upload & Process</span>
-        <span x-show="isUploading" class="flex items-center justify-center gap-2">
-          <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          Processing...
-        </span>
-      </button>
+      <form action="/upload" method="POST" enctype="multipart/form-data" 
+            @submit="handleSubmit($event)"
+            class="flex flex-col gap-4">
+        
+        <div class="dropzone rounded-lg p-8 cursor-pointer border-gray-300 hover:border-blue-600" 
+             :class="{ 'dragover': isDragging, 'bg-blue-50 border-blue-600': isDragging }"
+             @click="$refs.fileInput.click()"
+             @dragover.prevent="isDragging = true"
+             @dragleave.prevent="isDragging = false"
+             @drop.prevent="handleDrop($event)">
+          
+          <div x-show="!fileName" class="text-gray-400">
+            <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            <p class="text-sm">Click or drop PDF here</p>
+          </div>
+          
+          <div x-show="fileName" class="text-gray-700">
+            <svg class="w-12 h-12 mx-auto mb-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <p class="text-sm font-medium" x-text="fileName"></p>
+            <p class="text-xs text-gray-400 mt-1" x-text="fileSize"></p>
+          </div>
+        </div>
 
-      <!-- Error Message -->
-      <div x-show="error" x-transition class="text-red-500 text-sm bg-red-50 p-3 rounded-lg" x-text="error"></div>
-    </form>
-  </div>
+        <input type="file" 
+               name="file" 
+               x-ref="fileInput"
+               @change="handleFileSelect($event)"
+               required 
+               class="hidden" 
+               accept=".pdf">
+        
+        <button type="submit" 
+                :disabled="isUploading"
+                :class="isUploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'"
+                class="text-white py-3 rounded-lg transition font-medium text-lg transform hover:scale-[1.03]">
+          <span x-show="!isUploading">Upload & Process</span>
+          <span x-show="isUploading" class="flex items-center justify-center gap-2">
+            <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Processing...
+          </span>
+        </button>
+
+        <div x-show="error" x-transition class="text-red-600 text-sm bg-red-100 p-3 rounded-lg" x-text="error"></div>
+      </form>
+    </section>
+
+    <section class="bg-white shadow-lg rounded-2xl p-8 w-full mb-10" x-data="{ open: false }">
+        <button @click="open = !open" class="flex justify-between items-center w-full text-left">
+            <h2 class="text-2xl font-semibold text-gray-700">💡 Or Create a Custom Course</h2>
+            <span class="text-2xl text-gray-500 transform smooth-transition" :class="{ 'rotate-180': open }">▼</span>
+        </button>
+        
+        <div x-show="open" x-cloak
+             x-transition:enter="smooth-transition"
+             x-transition:enter-start="opacity-0 -translate-y-4 max-h-0"
+             x-transition:enter-end="opacity-100 translate-y-0 max-h-96"
+             x-transition:leave="smooth-transition"
+             x-transition:leave-start="opacity-100 translate-y-0 max-h-96"
+             x-transition:leave-end="opacity-0 -translate-y-4 max-h-0"
+             class="overflow-hidden mt-6 pt-6 border-t">
+            
+            <form action="{{ url_for('add_course') }}" method="POST" class="space-y-4">
+                <div>
+                    <label for="course_name_new" class="block text-sm font-medium text-gray-700">Course Name</label>
+                    <input type="text" name="course_name" id="course_name_new" placeholder="e.g., Data Structures" required
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="course_code_new" class="block text-sm font-medium text-gray-700">Course Code</label>
+                    <input type="text" name="course_code" id="course_code_new" placeholder="e.g., BCSE304L" required
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <button type="submit"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg smooth-transition transform hover:scale-[1.03]">
+                    Create Course
+                </button>
+            </form>
+        </div>
+    </section>
+    <section>
+        <h2 class="text-3xl font-semibold mb-6 text-white text-center">My Courses</h2>
+        
+        <div class="space-y-4">
+            {% if courses %}
+                {% for course in courses %}
+                    <div x-data="{ editing: false }" 
+                         class="bg-white rounded-2xl shadow-lg overflow-hidden smooth-transition hover:shadow-2xl hover:scale-[1.01]">
+                        
+                        <div x-show="!editing" 
+                             class="p-5" :class="{ 'cursor-pointer': !editing }" @click="editing = !editing">
+                            <div class="flex items-center justify-between mb-3">
+                                <a href="{{ url_for('dashboard', course_id=course.course_id) }}" @click.stop class="flex-grow min-w-0">
+                                    <h3 class="font-semibold text-lg text-blue-600 truncate hover:underline">{{ course.COURSE_NAME }}</h3>
+                                    <p class="text-sm text-gray-500">{{ course.course_code }}</p>
+                                </a>
+                                <button @click.stop.prevent="editing = true" 
+                                        class="ml-4 text-sm text-blue-600 hover:underline flex-shrink-0">Edit</button>
+                            </div>
+                            
+                            <div class="flex items-center gap-3" title="{{ "%.1f"|format(course.completion_percentage|float) }}% Complete">
+                                <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                  <div class="h-3 rounded-full progress-bar-animated bg-gradient-to-r from-blue-500 to-cyan-400" 
+                                       style="width: {{ course.completion_percentage }}%"></div>
+                                </div>
+                                <span class="text-sm font-medium text-gray-700">{{ "%.0f"|format(course.completion_percentage|float) }}%</span>
+                            </div>
+                        </div>
+
+                        <div x-show="editing" x-cloak
+                             x-transition:enter="smooth-transition"
+                             x-transition:enter-start="opacity-0 max-h-0"
+                             x-transition:enter-end="opacity-100 max-h-96"
+                             x-transition:leave="smooth-transition"
+                             x-transition:leave-start="opacity-100 max-h-96"
+                             x-transition:leave-end="opacity-0 max-h-0"
+                             class="p-5 bg-gray-50 overflow-hidden" @click.outside="editing = false">
+                            
+                            <form action="{{ url_for('update_course', course_id=course.course_id) }}" method="POST" class="space-y-3 mb-4">
+                                <h3 class="font-semibold text-lg text-gray-800">Edit Course</h3>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Name</label>
+                                    <input type="text" name="course_name" value="{{ course.COURSE_NAME }}"
+                                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Code</label>
+                                    <input type="text" name="course_code" value="{{ course.course_code }}"
+                                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <div class="flex gap-2 pt-2">
+                                    <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-semibold hover:bg-blue-700 smooth-transition">Save Changes</button>
+                                    <button type="button" @click="editing = false" class="text-sm text-gray-600 hover:underline">Cancel</button>
+                                </div>
+                            </form>
+                            
+                            <hr class="my-4">
+                            
+                            <form action="{{ url_for('delete_course', course_id=course.course_id) }}" method="POST">
+                                <button type="submit" 
+                                        onclick="return confirm('Are you sure? This will delete the course, all modules, and all topics permanently.')"
+                                        class="text-sm font-medium text-red-600 hover:underline hover:font-bold">
+                                    Delete Course Permanently
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="bg-white/80 backdrop-blur-sm shadow-lg p-6 text-center rounded-2xl">
+                    <p class="text-gray-700 font-medium">You haven't uploaded any courses yet. Use the form above to get started.</p>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+    </div>
 
   <script>
     function uploadHandler() {
@@ -84,12 +271,10 @@
         isDragging: false,
         isUploading: false,
         error: '',
-
         handleFileSelect(e) {
           const file = e.target.files[0];
           this.validateAndSetFile(file);
         },
-
         handleDrop(e) {
           this.isDragging = false;
           const file = e.dataTransfer.files[0];
@@ -98,34 +283,31 @@
             this.validateAndSetFile(file);
           }
         },
-
         validateAndSetFile(file) {
           this.error = '';
-          
           if (!file) return;
-          
           if (file.type !== 'application/pdf') {
             this.error = 'Please upload a PDF file';
             this.fileName = '';
+            this.fileSize = '';
+            this.$refs.fileInput.value = null;
             return;
           }
-          
-          if (file.size > 10 * 1024 * 1024) {
+          if (file.size > 10 * 1024 * 1024) { // 10MB limit
             this.error = 'File size must be less than 10MB';
             this.fileName = '';
+            this.fileSize = '';
+            this.$refs.fileInput.value = null;
             return;
           }
-          
           this.fileName = file.name;
           this.fileSize = this.formatFileSize(file.size);
         },
-
         formatFileSize(bytes) {
           if (bytes < 1024) return bytes + ' B';
           if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
           return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         },
-
         handleSubmit(e) {
           if (!this.fileName) {
             e.preventDefault();
@@ -138,5 +320,12 @@
     }
   </script>
 
-</body>
+  <script>
+    document.body.addEventListener("pointermove", (e)=>{
+      const { currentTarget: el, clientX: x, clientY: y } = e;
+      const { top: t, left: l, width: w, height: h } = el.getBoundingClientRect();
+      el.style.setProperty('--posX',  x-l-w/2);
+      el.style.setProperty('--posY',  y-t-h/2);
+    })
+  </script>
 </html>

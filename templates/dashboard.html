@@ -2,134 +2,592 @@
 <html>
 <head>
   <title>{{ course.course_name }} Dashboard</title>
-  <style>
-    .topic { margin-bottom: 10px; }
-  </style>
-  <script>
-    async function updateTopic(id) {
-      const completion = document.getElementById(`comp-${id}`).value;
-      const importance = document.getElementById(`imp-${id}`).value;
-      await fetch(`/update_topic/${id}`, {
-        method: "POST",
-        body: new URLSearchParams({completion, importance})
-      });
-      alert("Updated!");
-    }
-  </script>
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-    .card { transition: transform .2s, box-shadow .2s; }
-    .card:hover { transform: translateY(-3px); box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
-    .btn {
-      background-color: #2563eb; /* tailwind bg-blue-600 */
-      color: #ffffff;
-      padding: 0.25rem 0.75rem; /* similar to px-3 py-1 */
-      border-radius: 0.375rem; /* rounded-md */
-      transition: background-color .2s, transform .2s;
-    }
-    .btn:hover { background-color: #1e40af; } /* tailwind bg-blue-700 */
-    </style>
-
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_styles.css') }}">
 
 </head>
-<body class="bg-gray-100 text-gray-800" x-data="{ toast: false }">
 
-  <!-- Toast -->
+<body x-data="{ toast: false, toastText: 'Saved successfully ✅' }" x-ref="body">
+
+  <div class="animated-bg"></div>
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+  <div class="glow-orb orb-3"></div>
+
   <div x-show="toast" x-transition
-       class="fixed top-5 right-5 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg">
-    Saved successfully ✅
+       class="toast fixed top-8 right-8 px-8 py-4 rounded-2xl shadow-2xl z-50 text-white font-bold text-lg"
+       x-text="toastText">
   </div>
-
-  <!-- Sidebar -->
-  <div class="flex">
-    <aside class="w-64 bg-white shadow-lg h-screen p-6">
-      <h2 class="text-2xl font-semibold mb-6 text-blue-700">VALL Tracker</h2>
-      <p class="text-gray-500 mb-4">{{ course.course_code }}</p>
-      <a href="/" class="text-blue-600 hover:underline">← Back to Upload</a>
+  
+  <div class="flex min-h-screen content-wrapper">
+    <aside class="sidebar w-80 h-screen p-8 sticky top-0 flex flex-col">
+      <div class="mb-10">
+        <h2 class="text-4xl font-bold mb-2 neon-text">
+          VALL TRACKER
+        </h2>
+        <div class="h-1 w-20 bg-gradient-to-r from-violet-500 to-pink-500 rounded-full mb-3"></div>
+        <p class="text-violet-300 text-sm font-semibold tracking-wider">{{ course.course_code }}</p>
+      </div>
+      
+      <div class="space-y-4 mb-8">
+        <div class="stat-card p-4 rounded-xl">
+          <div class="text-gray-400 text-sm mb-1 tracking-wider">TOTAL MODULES</div>
+          <div class="text-3xl font-bold text-violet-400">{{ module_data|length }}</div>
+        </div>
+        
+        <div class="stat-card p-4 rounded-xl">
+          <div class="text-gray-400 text-sm mb-1 tracking-wider">TOTAL TOPICS</div>
+          <div class="text-3xl font-bold text-pink-400">
+            {% set total_topics = namespace(count=0) %}
+            {% for block in module_data %}
+              {% set total_topics.count = total_topics.count + block.topics|length %}
+            {% endfor %}
+            {{ total_topics.count }}
+          </div>
+        </div>
+        
+        <div class="stat-card p-4 rounded-xl">
+          <div class="text-gray-400 text-sm mb-1 tracking-wider">AVG COMPLETION</div>
+          <div class="text-3xl font-bold text-cyan-400">
+            {% set avg_completion = namespace(total=0, count=0) %}
+            {% for block in module_data %}
+              {% for topic in block.topics %}
+                {% set avg_completion.total = avg_completion.total + (topic.completion_status or 0) %}
+                {% set avg_completion.count = avg_completion.count + 1 %}
+              {% endfor %}
+            {% endfor %}
+            {% if avg_completion.count > 0 %}
+              {{ (avg_completion.total / avg_completion.count)|round|int }}%
+            {% else %}
+              0%
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      
+      <div class="stat-card p-4 rounded-xl mb-8 flex flex-col">
+        <div class="text-gray-400 text-sm mb-3 tracking-wider">PROGRESS OVERVIEW</div>
+        
+        <div class="relative h-32">
+          <canvas id="sidebarChart"></canvas>
+        </div>
+      </div>
+      
+      <div class="mt-auto">
+        <a href="/" class="flex items-center text-violet-400 hover:text-violet-300 font-semibold transition-colors group">
+          <svg class="w-6 h-6 mr-3 transition-transform group-hover:-translate-x-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+          </svg>
+          BACK TO UPLOAD
+        </a>
+      </div>
     </aside>
-
-    <!-- Main Content -->
-    <main class="flex-1 p-8 overflow-y-auto">
-      <h1 class="text-3xl font-bold mb-8">{{ course.course_name }}</h1>
-
-      {% for block in module_data %}
-        <section class="mb-6 bg-white p-5 rounded-xl shadow card" x-data="{ open: false }">
-          <header class="flex justify-between items-center cursor-pointer" @click="open = !open">
-            <div>
-              <h3 class="font-semibold text-lg text-gray-800">{{ block.module.module_name }}</h3>
-              <p class="text-sm text-gray-500">{{ block.module.module_hours }} hours</p>
-            </div>
-            <button class="text-gray-500" x-text="open ? '▲' : '▼'"></button>
-          </header>
-
-          <div x-show="open" x-transition class="mt-4">
-            {% for t in block.topics %}
-              <div class="border-t py-3">
-                <p class="font-medium">{{ t.topic_name }}</p>
-                <div class="flex gap-3 mt-2">
-                  <div>
-                    <label class="text-sm text-gray-500">Completion</label>
-                    <input type="number" id="comp-{{ t.topic_id }}" value="{{ t.completion_status or 0 }}" min="0" max="100"
-                      class="border rounded p-1 w-20 text-center" onfocus="if(this.value==0)this.value=''">
-                  </div>
-                  <div>
-                    <label class="text-sm text-gray-500">Importance</label>
-                    <input type="number" id="imp-{{ t.topic_id }}" value="{{ t.importance or 0 }}" min="0" max="100"
-                      class="border rounded p-1 w-20 text-center" onfocus="if(this.value==0)this.value=''">
-                  </div>
-                  <button class="btn ml-auto" data-id="{{ t.topic_id }}">Save</button>
-                </div>
-
-                <!-- Progress bar -->
-                <div class="w-full bg-gray-200 rounded-full h-2.5 mt-3">
-                  <div id="bar-{{ t.topic_id }}" class="bg-blue-600 h-2.5 rounded-full" data-completion="{{ t.completion_status }}"></div>
-                </div>
+    
+    <main class="flex-1 p-12 overflow-y-auto" x-data="{ allOpen: false }">
+      <div class="max-w-7xl mx-auto">
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="mb-6 space-y-3">
+            {% for category, message in messages %}
+              <div class="toast-flash p-4 rounded-lg font-bold text-white {{ 
+                   'bg-gradient-to-r from-green-500 to-emerald-500' if category == 'success' 
+                   else 'bg-gradient-to-r from-red-500 to-rose-500' 
+                 }}" role="alert">
+                {{ message }}
               </div>
             {% endfor %}
-          </div>
-        </section>
-      {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <header class="mb-12">
+          <h1 class="text-6xl font-bold mb-3 neon-text">{{ course.course_name }}</h1>
+          <div class="h-2 w-32 bg-gradient-to-r from-violet-500 via-pink-500 to-cyan-500 rounded-full sparkle"></div>
+        </header>
+
+        <div class="flex justify-end mb-4">
+            <button @click="allOpen = !allOpen" 
+                    class="px-6 py-2 rounded-xl bg-violet-600/30 hover:bg-violet-600/50 text-violet-300 font-semibold transition-all text-sm uppercase tracking-wider">
+                <span x-show="allOpen">Collapse All</span>
+                <span x-show="!allOpen">Expand All</span>
+            </button>
+        </div>
+        <div class="mb-6" x-data="{ addingModule: false }">
+    <button @click="addingModule = !addingModule" 
+            class="w-full btn-cyber justify-center py-3 text-base mb-4">
+        <span x-show="!addingModule">➕ Add New Module</span>
+        <span x-show="addingModule">➖ Cancel Adding Module</span>
+    </button>
+
+    <div x-show="addingModule" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform -translate-y-4"
+         x-transition:enter-end="opacity-100 transform translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 transform translate-y-0"
+         x-transition:leave-end="opacity-0 transform -translate-y-4"
+         class="module-card rounded-3xl p-8 border-cyan-500/50"> 
+
+        <form action="{{ url_for('add_module', course_id=course.course_id) }}" method="POST" class="space-y-4">
+            <h3 class="text-2xl font-bold text-white mb-4">Create New Module</h3>
+            <div>
+                <label class="text-sm font-semibold text-gray-400 block mb-2 tracking-wider">MODULE NAME</label>
+                <input type="text" name="module_name" required 
+                       class="rounded-xl p-3 w-full text-lg font-semibold" placeholder="Enter module name...">
+            </div>
+            <div>
+                <label class="text-sm font-semibold text-gray-400 block mb-2 tracking-wider">HOURS (Optional)</label>
+                <input type="number" name="module_hours" min="0" value="0"
+                       class="rounded-xl p-3 w-32">
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="btn-cyber bg-gradient-to-r from-green-500 to-emerald-500">Create Module</button>
+                <button type="button" @click="addingModule = false" class="px-6 py-3 rounded-xl bg-gray-600/30 hover:bg-gray-600/50 text-gray-300 font-semibold">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="space-y-8">
+  
+  {% for block in module_data %}
+
+    {# --- JINJA CALCULATION FOR module_progress --- #}
+            {% set current_module_progress = namespace(value=0) %}
+            {% if block.topics|length > 0 %}
+              {% set topic_total = namespace(sum=0) %}
+              {% for topic in block.topics %}
+                {% set topic_total.sum = topic_total.sum + (topic.completion_status or 0) %}
+              {% endfor %}
+              {% set current_module_progress.value = (topic_total.sum / block.topics|length)|round|int %}
+            {% endif %}
+            {# --- END JINJA CALCULATION --- #}
+
+            <section class="module-card rounded-3xl p-8" 
+                     x-data='{ 
+             open: false, 
+             editing: false, 
+             newName: {{ block.module.module_name | tojson }}, 
+             newHours: {{ block.module.module_hours or 0 }},
+             addingTopic: false,
+             newTopicName: "",
+             moduleProgress: {{ current_module_progress.value }},
+             init() { 
+               this.open = this.allOpen;
+               this.$watch("allOpen", value => this.open = value);
+             }
+           }'>
+
+              <div class="flex items-center justify-between mb-6 cursor-pointer" @click="if (!editing) open = !open">
+                <div class="flex items-center space-x-8">
+                  <div class="relative flex-shrink-0">
+                    <svg class="w-28 h-28 transform -rotate-90">
+                      <circle cx="56" cy="56" r="50" stroke="rgba(71, 85, 105, 0.3)" stroke-width="8" fill="none"/>
+                      <circle cx="56" cy="56" r="50" 
+                              :stroke-dasharray="2 * Math.PI * 50"
+                              :stroke-dashoffset="2 * Math.PI * 50 * (1 - moduleProgress / 100)"
+                              stroke="url(#gradient{{ loop.index }})" 
+                              stroke-width="8" 
+                              fill="none"
+                              class="progress-ring"
+                              stroke-linecap="round"/>
+                      <defs>
+                        <linearGradient id="gradient{{ loop.index }}" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" style="stop-color:#8b5cf6"/>
+                          <stop offset="50%" style="stop-color:#ec4899"/>
+                          <stop offset="100%" style="stop-color:#06b6d4"/>
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                      <span class="text-2xl font-bold text-violet-400" x-text="moduleProgress + '%'"></span>
+                    </div>
+                  </div>
+                  
+                  <div x-show="!editing">
+                    <h3 class="text-3xl font-bold text-white mb-2" x-text="newName"></h3>
+                    <div class="flex items-center space-x-4">
+                      <span class="px-4 py-1 rounded-full bg-gradient-to-r from-violet-500 to-pink-500 text-white font-semibold text-sm">
+                        <span x-text="newHours"></span>h
+                      </span>
+                      <span class="text-gray-400">{{ block.topics|length }} topics</span>
+                    </div>
+                  </div>
+                  
+                  <div x-show="editing" class="space-y-3">
+                    <div>
+                      <label class="text-sm font-semibold text-gray-400 block mb-2 tracking-wider">MODULE NAME</label>
+                      <input type="text" x-model="newName" 
+                             class="rounded-xl p-3 w-96 text-xl font-bold">
+                    </div>
+                    <div>
+                      <label class="text-sm font-semibold text-gray-400 block mb-2 tracking-wider">HOURS</label>
+                      <input type="number" x-model.number="newHours" min="0" 
+                             class="rounded-xl p-3 w-32">
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="flex items-center space-x-4" @click.stop>
+                  <template x-if="!editing">
+                    <div class="flex items-center space-x-4">
+                      <button @click="editing = true" 
+                              class="px-6 py-2 rounded-xl bg-violet-600/30 hover:bg-violet-600/50 text-violet-300 font-semibold transition-all">
+                        EDIT
+                      </button>
+
+                      <form action="{{ url_for('delete_module', module_id=block.module.module_id) }}" method="POST" 
+                            onsubmit="return confirm('Are you sure you want to delete this module and ALL its topics? This cannot be undone.')">
+                        <button type="submit"
+                                class="px-4 py-2 rounded-lg bg-pink-600/30 hover:bg-pink-600/50 text-pink-300 font-semibold transition-all text-sm">
+                          DELETE
+                        </button>
+                      </form>
+                      <button class="text-violet-400 p-2">
+                        <svg class="w-8 h-8 expand-icon transition-transform" 
+                             :class="{ 'rotated': open }" 
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </template>
+                  <template x-if="editing">
+                    <div class="flex items-center space-x-3">
+                      <button @click="updateModule({{ block.module.module_id }}, newName, newHours); editing = false;" 
+                              class="btn-cyber">
+                        SAVE
+                      </button>
+                      <button @click='editing = false; newName = {{ block.module.module_name | tojson }}; newHours = {{ block.module.module_hours or 0 }};'
+                              class="px-6 py-2 rounded-xl bg-gray-600/30 hover:bg-gray-600/50 text-gray-300 font-semibold transition-all">
+                        CANCEL
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div x-show="open" x-cloak
+                   x-transition:enter="transition ease-out duration-500"
+                   x-transition:enter-start="opacity-0 transform -translate-y-8"
+                   x-transition:enter-end="opacity-100 transform translate-y-0"
+                   class="space-y-4 pt-6 border-t border-violet-500/30">
+                
+                <div class="p-5 rounded-2xl bg-gradient-to-r from-violet-600/10 to-pink-600/10 border border-violet-500/30">
+                  <button x-show="!addingTopic" 
+                          @click="addingTopic = true; $nextTick(() => $refs.newTopicInput{{ loop.index }}.focus())"
+                          class="flex items-center space-x-3 text-violet-300 hover:text-violet-200 font-bold transition-colors group">
+                    <svg class="w-6 h-6 transform group-hover:scale-125 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    <span class="tracking-wider">ADD NEW TOPIC</span>
+                  </button>
+                  
+                  <div x-show="addingTopic" @click.outside="addingTopic = false; newTopicName = '';" class="space-y-3">
+                    <input type="text" x-model="newTopicName" x-ref="newTopicInput{{ loop.index }}"
+                           @keydown.enter="addTopic({{ block.module.module_id }}, newTopicName); newTopicName = ''; addingTopic = false;"
+                           @keydown.escape="addingTopic = false; newTopicName = '';"
+                           class="rounded-xl p-4 w-full text-lg font-semibold"
+                           placeholder="Enter topic name...">
+                    <div class="flex gap-3">
+                      <button @click="addTopic({{ block.module.module_id }}, newTopicName); newTopicName = ''; addingTopic = false;"
+                              class="btn-cyber">ADD TOPIC</button>
+                      <button @click="addingTopic = false; newTopicName = '';"
+                              class="px-6 py-3 rounded-xl bg-gray-600/30 hover:bg-gray-600/50 text-gray-300 font-semibold">CANCEL</button>
+                    </div>
+                  </div>
+                </div>
+
+                {% for t in block.topics %}
+                  <div id="topic-{{ t.topic_id }}"
+                       x-data='{ 
+                          editingName: false, 
+                          newName: {{ t.topic_name | tojson }},
+                          completion: {{ t.completion_status or 0 }},
+                          importance: {{ t.importance or 3 }}, 
+                          get topicClass() {
+                            if (this.completion >= 80) return "topic-complete";
+                            if (this.completion >= 50) return "topic-nearlyDone";
+                            if (this.completion >= 20) return "topic-inprogress";
+                            return "topic-new";
+                          },
+                          autoSaveStats() {
+                            updateTopicStats({{ t.topic_id }}, this.completion, this.importance);
+                          }
+                        }'
+                      class="topic-row rounded-2xl p-6 transition-all"
+                      :class="topicClass"
+                      >
+                    
+                    <div class="flex justify-between items-center mb-5">
+                      <div class="flex-grow flex items-center">
+                        <span x-show="!editingName" class="text-xl font-bold text-white" x-text="newName"></span>
+                        <input x-show="editingName" type="text" x-model="newName" 
+                               @keydown.enter="renameTopic({{ t.topic_id }}, newName); editingName = false;"
+                               @keydown.escape='editingName = false; newName = {{ t.topic_name | tojson }}'
+                               class="rounded-xl p-2 w-full font-bold text-xl"
+                               x-ref="input{{ t.topic_id }}">
+                      </div>
+                      
+                      <div class="flex gap-3 ml-6 flex-shrink-0">
+                        <template x-if="!editingName">
+                          <div class="flex gap-3">
+                            <button @click="editingName = true; $nextTick(() => $refs.input{{ t.topic_id }}.focus())" 
+                                    class="px-4 py-2 rounded-lg bg-violet-600/30 hover:bg-violet-600/50 text-violet-300 font-semibold transition-all text-sm">
+                              RENAME
+                            </button>
+                            <button @click="deleteTopic({{ t.topic_id }})" 
+                                    class="px-4 py-2 rounded-lg bg-pink-600/30 hover:bg-pink-600/50 text-pink-300 font-semibold transition-all text-sm">
+                              DELETE
+                            </button>
+                          </div>
+                        </template>
+                        <template x-if="editingName">
+                          <div class="flex gap-3">
+                            <button @click="renameTopic({{ t.topic_id }}, newName); editingName = false;" 
+                                    class="px-4 py-2 rounded-lg bg-green-600/30 hover:bg-green-600/50 text-green-300 font-semibold transition-all text-sm">
+                              SAVE
+                            </button>
+                            <button @click='editingName = false; newName = {{ t.topic_name | tojson }}'
+                                    class="px-4 py-2 rounded-lg bg-gray-600/30 hover:bg-gray-600/50 text-gray-300 font-semibold transition-all text-sm">
+                              CANCEL
+                            </button>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-8 items-center">
+                      <div>
+                        <label class="text-sm font-semibold text-gray-400 block mb-3 tracking-wider">
+                          COMPLETION: <span class="font-bold text-lg text-cyan-400" x-text="completion + '%'"></span>
+                        </label>
+                        <input type="range" min="0" max="100" step="1" x-model.number="completion"
+                               @change="autoSaveStats()"
+                               class="slider-modern">
+                      </div>
+                      
+                      <div>
+                        <label class="text-sm font-semibold text-gray-400 block mb-3 tracking-wider">IMPORTANCE</label>
+                        <select x-model.number="importance" @change="autoSaveStats()"
+                                class="form-cyber rounded-xl p-3 w-full text-lg font-semibold">
+                          <option value="1">1 (Low)</option>
+                          <option value="2">2</option>
+                          <option value="3">3 (Medium)</option>
+                          <option value="4">4</option>
+                          <option value="5">5 (High)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                  </div>
+                {% endfor %}
+              </div>
+            </section>
+          {% endfor %}
+        </div>
+      </div>
     </main>
   </div>
 
   <script>
-    // Initialize progress bars and wire save buttons without inline JS that contains template braces
-    document.addEventListener('DOMContentLoaded', () => {
-      // Set initial widths from data-completion attributes
-      document.querySelectorAll('[data-completion]').forEach(el => {
-        const v = Number(el.getAttribute('data-completion')) || 0;
-        el.style.width = v + '%';
-        el.style.transition = 'width 0.5s';
-      });
-
-      // Wire Save buttons (they have data-id attribute with topic IDs)
-      document.querySelectorAll('button[data-id]').forEach(btn => {
-        btn.addEventListener('click', () => updateTopic(btn.dataset.id));
-      });
-    });
-
-    async function updateTopic(id) {
-      const completion = document.getElementById(`comp-${id}`).value || 0;
-      const importance = document.getElementById(`imp-${id}`).value || 0;
-      await fetch(`/update_topic/${id}`, {
-        method: "POST",
-        body: new URLSearchParams({completion, importance})
-      });
-      
-      // Trigger Alpine.js toast
-      Alpine.store('toast', true);
-      
-      const bar = document.getElementById(`bar-${id}`);
-      if (bar) bar.style.width = completion + "%";
-      
-      setTimeout(() => Alpine.store('toast', false), 1200);
+    // --- Helper function to show toast notifications ---
+    function showToast(message, error = false) {
+      try {
+        const bodyData = document.querySelector('[x-ref="body"]').__x.$data;
+        bodyData.toastText = message;
+        bodyData.toast = true;
+        
+        const toastEl = document.querySelector('.toast');
+        if (error) {
+          toastEl.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+          toastEl.style.boxShadow = '0 10px 40px rgba(239, 68, 68, 0.4)';
+        } else {
+          toastEl.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+          toastEl.style.boxShadow = '0 10px 40px rgba(16, 185, 129, 0.4)';
+        }
+        
+        setTimeout(() => bodyData.toast = false, 2000);
+      } catch (e) {
+        console.error("Alpine toast error:", e);
+        alert(message); // Fallback
+      }
     }
+
+    // --- All async functions to talk to Flask backend ---
+
+    async function updateTopicStats(id, completion, importance) {
+      try {
+        const response = await fetch(`/update_topic_stats/${id}`, {
+          method: "POST",
+          body: new URLSearchParams({ completion, importance })
+        });
+        if (!response.ok) throw new Error('Server error');
+        const data = await response.json();
+        showToast('Stats saved! ✅');
+      } catch (error) {
+        console.error("Failed to save stats:", error);
+        showToast('Save Error ❌', true);
+      }
+    }
+
+    async function updateModule(id, name, hours) {
+      try {
+        const response = await fetch(`/update_module/${id}`, {
+          method: "POST",
+          body: new URLSearchParams({ 
+            module_name: name,
+            module_hours: hours
+          })
+        });
+        if (!response.ok) throw new Error('Server error');
+        showToast('Module updated! 🚀');
+      } catch (error) {
+        console.error("Failed to update module:", error);
+        showToast("Error: Could not save module ❌", true);
+      }
+    }
+
+    async function renameTopic(id, name) {
+      if (!name) return showToast("Topic name cannot be empty ❌", true);
+      try {
+        const response = await fetch(`/rename_topic/${id}`, {
+          method: "POST",
+          body: new URLSearchParams({ topic_name: name })
+        });
+        if (!response.ok) throw new Error('Server error');
+        showToast('Topic renamed! ✏️');
+      } catch (error) {
+        console.error("Failed to rename topic:", error);
+        showToast("Error: Could not rename topic ❌", true);
+      }
+    }
+
+    async function deleteTopic(id) {
+      if (!confirm("Are you sure you want to permanently delete this topic?")) return;
+      
+      try {
+        const response = await fetch(`/delete_topic/${id}`, {
+          method: "POST"
+        });
+        if (!response.ok) throw new Error('Server error');
+        
+        const topicElement = document.getElementById(`topic-${id}`);
+        if (topicElement) {
+          topicElement.style.transition = 'all 0.3s ease-out';
+          topicElement.style.opacity = 0;
+          topicElement.style.transform = 'translateX(-20px)';
+          setTimeout(() => topicElement.remove(), 300);
+        }
+        showToast('Topic deleted! 🗑️');
+      } catch (error) {
+        console.error("Failed to delete topic:", error);
+        showToast("Error: Could not delete topic ❌", true);
+      }
+    }
+
+    async function addTopic(moduleId, name) {
+      if (!name) return showToast("Topic name cannot be empty ❌", true);
+      
+      try {
+        const response = await fetch(`/add_topic/${moduleId}`, {
+          method: "POST",
+          body: new URLSearchParams({ topic_name: name })
+        });
+        
+        if (response.status === 201) { // Check for "Created" status
+          showToast('Topic added! 🎉');
+          setTimeout(() => location.reload(), 500); // Reload to see new topic
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Server error');
+        }
+        
+      } catch (error) {
+        console.error("Failed to add topic:", error);
+        showToast(`Error: ${error.message} ❌`, true);
+      }
+    }
+  </script>
+  
+  <script>
+    // --- Sidebar Chart.js ---
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        const ctx = document.getElementById('sidebarChart').getContext('2d');
+        
+        // Use Jinja to safely embed the JSON data
+         const moduleDataJson = {{ module_data | tojson | safe }}; 
+        
+        // Format data for Chart.js
+        const labels = moduleDataJson.map(m => m.module.module_name.split(' ')[0]); // e.g., "Module:1"
+        const completionData = moduleDataJson.map(m => {
+          if (m.topics.length === 0) return 0;
+          const total = m.topics.reduce((sum, t) => sum + (t.completion_status || 0), 0);
+          return Math.round(total / m.topics.length);
+        });
+
+        // Create the chart
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Module Completion',
+              data: completionData,
+              backgroundColor: 'rgba(139, 92, 246, 0.2)',
+              borderColor: '#8b5cf6',
+              borderWidth: 3,
+              pointBackgroundColor: '#fff',
+              pointBorderColor: '#8b5cf6',
+              pointHoverRadius: 7,
+              pointHoverBorderWidth: 2,
+              pointHoverBackgroundColor: '#8b5cf6',
+              pointHoverBorderColor: '#fff',
+              tension: 0.4, 
+              fill: true,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#0a0e27',
+                titleColor: '#c4b5fd',
+                bodyColor: '#fff',
+                borderColor: '#8b5cf6',
+                borderWidth: 1,
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 100,
+                ticks: { color: 'rgba(255, 255, 255, 0.5)', callback: value => value + '%' },
+                grid: { color: 'rgba(139, 92, 246, 0.1)' }
+              },
+              x: {
+                ticks: { color: 'rgba(255, 255, 255, 0.5)' },
+                grid: { display: false }
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Chart.js Error:', e);
+      }
+    });
   </script>
 
 </body>
