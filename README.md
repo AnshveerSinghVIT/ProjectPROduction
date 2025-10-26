@@ -2,8 +2,7 @@
 
 A smart web application designed to automatically parse course syllabi from PDF files (like those from VIT) and turn them into an interactive progress tracker. You can also create and manage fully custom courses from scratch.
 
-![ProjectPROduction Demo](https://via.placeholder.com/720x400.png?text=Add+a+GIF+or+Screenshot+of+your+App!)
-*(Recommendation: Record a short GIF of your app working—especially the PDF upload—and replace the link above!)*
+
 
 ## Table of Contents
 
