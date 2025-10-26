@@ -16,7 +16,7 @@ A simple and effective web application to help students and instructors track th
 
 ## Description
 
-This project is a [Your Project Name], a web-based tool built to manage and monitor progress on course subjects or topics. It allows users to input their syllabus structure (e.g., by course, module, and topic) and mark each item as "Completed," "In Progress," or "Not Started." A visual progress bar provides an immediate overview of how much of the syllabus has been covered.
+This project is a VIT-SYLLABUS-TRACKER, a tool built to manage and monitor progress on course subjects or topics. It allows users to input their syllabus structure (e.g., by course, module, and topic) and mark each item as "Completed," "In Progress," or "Not Started." A visual progress bar provides an immediate overview of how much of the syllabus has been covered.
 
 This tool is perfect for students managing multiple courses or for anyone self-studying who needs a clear way to organize their learning path.
 
@@ -33,8 +33,8 @@ This tool is perfect for students managing multiple courses or for anyone self-s
 
 * **Backend:** Python (Flask)
 * **Frontend:** HTML, CSS, JavaScript
-* **Database:** SQLite (or specify: PostgreSQL, MySQL, etc.)
-* **ORM:** SQLAlchemy (if used)
+* **Database:** MySQL
+* **libraries:** SQLconnector, pdfplumber
 
 ## Installation
 
